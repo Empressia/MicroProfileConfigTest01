@@ -1,0 +1,84 @@
+plugins {
+	id "java";
+	id "war";
+}
+
+ext.moduleName = project.name;
+
+repositories {
+	jcenter();
+}
+
+dependencies {
+	// use Payara Micro.
+	providedRuntime group:"fish.payara.extras", name:"payara-micro", version:"5.194";
+	// use CDI.
+	providedCompile group:"javax.enterprise", name:"cdi-api", version:"2.0.SP1";
+	// use MicroProfile Config API.
+	providedCompile group:"org.eclipse.microprofile.config", name:"microprofile-config-api", version:"1.3";
+
+}
+
+tasks.withType(JavaCompile) {
+	options.encoding "UTF-8";
+	options.compilerArgs << "-parameters";
+}
+
+war {
+	baseName moduleName;
+	manifest {
+		attributes (
+			"Automatic-Module-Name": moduleName
+		);
+	}
+}
+
+task copyRuntime(type: Copy) {
+	into "${buildDir}/runtime/";
+	from configurations.providedRuntime - configurations.providedCompile;
+}
+def libraries = configurations.runtimeClasspath - configurations.providedRuntime;
+task copyLibraries(type: Copy) {
+	into "${buildDir}/libraries/";
+	from libraries;
+}
+task createArgfile {
+	def argfile = file("${buildDir}/argfile/argfile.txt");
+	def runtimeDirectory = file("${buildDir}/runtime/");
+	def librariesDirectory = file("${buildDir}/libraries/");
+	runtimeDirectory.mkdirs();
+	inputs.dir(runtimeDirectory);
+	if(libraries.isEmpty() == false) {
+		librariesDirectory.mkdirs();
+		inputs.dir(librariesDirectory);
+	}
+	outputs.files(argfile);
+	doLast {
+		argfile.parentFile.mkdirs();
+		argfile.write("\"" + (runtimeDirectory.listFiles() + librariesDirectory.listFiles()).join(";").replaceAll("\\\\", "\\\\\\\\") + "\"", "UTF-8");
+	}
+}
+createArgfile.dependsOn(copyRuntime);
+createArgfile.dependsOn(copyLibraries);
+
+javadoc {
+	source = sourceSets.main.allJava;
+	options.charSet "UTF-8";
+	options.encoding "UTF-8";
+	options.addStringOption("Xdoclint:none", "-quiet");
+}
+task javadocJar(type: Jar) {
+	baseName war.baseName;
+	classifier "javadoc";
+	from javadoc.destinationDir;
+}
+javadocJar.dependsOn(tasks.javadoc);
+artifacts {
+	archives javadocJar;
+}
+
+task start(type: JavaExec) {
+	main = "-jar";
+	args = [configurations.providedRuntime.find { it.name.contains("payara-micro-") }.absolutePath, "--deploy", "\"${rootProject.buildDir}/libs/${moduleName}.war\""];
+}
+start.dependsOn(tasks.war);

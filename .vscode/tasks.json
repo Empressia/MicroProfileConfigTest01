@@ -1,0 +1,53 @@
+{
+	// See https://go.microsoft.com/fwlink/?LinkId=733558
+	// for the documentation about the tasks.json format
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "CopyWebappToApplication",
+			"type": "shell",
+			"presentation": {
+				"reveal": "silent"
+			},
+			"command": "robocopy \"\"\"${workspaceFolder}/src/main/webapp/\"\"\" \"\"\"${workspaceFolder}/bin/application/\"\"\" /e /purge /xo /nfl /ndl /np /njh /njs /r:1 /w:1 /xd WEB-INF /xf .reload; exit $(if($LASTEXITCODE -le 8) { 0 } elseif($LASTEXITCODE -eq 16) { if(Test-Path \"\"\"${workspaceFolder}/bin/application/\"\"\") { 0 } else { New-Item -Path \"\"\"${workspaceFolder}/bin/application/\"\"\" -ItemType Directory } } else { $LASTEXITCODE })"
+		},
+		{
+			"label": "CopyWEB-INFToApplication",
+			"type": "shell",
+			"presentation": {
+				"reveal": "silent"
+			},
+			"command": "robocopy \"\"\"${workspaceFolder}/src/main/webapp/WEB-INF/\"\"\" \"\"\"${workspaceFolder}/bin/application/WEB-INF/\"\"\" /e /purge /xo /nfl /ndl /np /njh /njs /r:1 /w:1 /xd classes; exit $(if($LASTEXITCODE -le 8) { 0 } elseif($LASTEXITCODE -eq 16) { if(Test-Path \"\"\"${workspaceFolder}/bin/application/WEB-INF/\"\"\") { 0 } else { New-Item -Path \"\"\"${workspaceFolder}/bin/application/WEB-INF/\"\"\" -ItemType Directory } } else { $LASTEXITCODE })"
+		},
+		{
+			"label": "CopyBinToApplication",
+			"type": "shell",
+			"presentation": {
+				"reveal": "silent"
+			},
+			"command": "robocopy \"\"\"${workspaceFolder}/bin/main/\"\"\" \"\"\"${workspaceFolder}/bin/application/WEB-INF/classes/\"\"\" /e /purge /xo /nfl /ndl /np /njh /njs /r:1 /w:1; exit $(if($LASTEXITCODE -le 8) { 0 } elseif($LASTEXITCODE -eq 16) { if(Test-Path \"\"\"${workspaceFolder}/bin/application/WEB-INF/classes/\"\"\") { 0 } else { New-Item -Path \"\"\"${workspaceFolder}/bin/application/WEB-iNF/classes/\"\"\" -ItemType Directory } } else { $LASTEXITCODE })"
+		},
+		{
+			"label": "PrepareLaunchApplication",
+			"type": "shell",
+			"presentation": {
+				"reveal": "silent"
+			},
+			"dependsOn": ["CopyWebappToApplication", "CopyWEB-INFToApplication", "CopyBinToApplication"],
+			"command": "./gradlew copyRuntime copyLibraries createArgfile"
+		},
+		{
+			"label": "ReloadApplication",
+			"type": "shell",
+			"presentation": {
+				"reveal": "silent"
+			},
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"dependsOn": ["CopyWebappToApplication", "CopyWEB-INFToApplication", "CopyBinToApplication"],
+			"command": "if(Test-Path \"\"\"${workspaceFolder}/bin/application/.reload\"\"\") { Set-ItemProperty -Path \"\"\"${workspaceFolder}/bin/application/.reload\"\"\" -Name LastWriteTime -Value $(Get-Date) } else { New-Item -Path \"\"\"${workspaceFolder}/bin/application/.reload\"\"\" }"
+		}
+	]
+}
